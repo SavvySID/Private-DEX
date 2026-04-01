@@ -1,0 +1,26 @@
+{
+  "name": "privatedex",
+  "private": true,
+  "version": "1.0.0",
+  "description": "PrivateDEX — FHE dark pool DEX (Hardhat + Next.js frontend)",
+  "scripts": {
+    "build:contracts": "hardhat compile && ts-node scripts/copyAbis.ts",
+    "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
+    "deploy:testnet": "hardhat run scripts/deploy.ts --network arbitrumSepolia",
+    "copy:abis": "ts-node scripts/copyAbis.ts",
+    "compile": "hardhat compile",
+    "test": "hardhat test"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@types/node": "^22.16.5",
+    "dotenv": "^16.4.7",
+    "hardhat": "^2.22.18",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@fhenixprotocol/cofhe-contracts": "^0.1.3",
+    "@openzeppelin/contracts": "^5.1.0"
+  }
+}
