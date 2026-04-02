@@ -17,56 +17,70 @@ export default function PoolStats({ activeOrderCount = 0 }: { activeOrderCount?:
   const { totalMatchedOrders, estimatedMevSaved, mevSavedDisplay, isLoading } = usePoolStats();
 
   const stats = [
-    { label: "Total Matched Orders", value: String(totalMatchedOrders), icon: Activity, pulse: false },
+    { label: "Total Matched Orders", value: String(totalMatchedOrders), icon: Activity, mevPulse: false },
     {
-      label: "MEV Saved (est.)",
+      label: "MEV Saved",
       value: mevSavedDisplay,
       sub: `${estimatedMevSaved} matcher ticks`,
       icon: Shield,
-      pulse: true,
+      mevPulse: true,
     },
-    { label: "Active Orders (yours)", value: String(activeOrderCount), icon: Lock, pulse: false },
+    { label: "Active Orders (yours)", value: String(activeOrderCount), icon: Lock, mevPulse: false },
   ];
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {stats.map((stat, i) => {
-          const Icon = stat.icon;
-          return (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.08 }}
-              className="glass-card rounded-2xl p-5"
-            >
-              {isLoading ? (
-                <div className="space-y-3">
-                  <Skeleton className="h-9 w-9 rounded-xl" />
-                  <Skeleton className="h-3 w-24" />
-                  <Skeleton className="h-7 w-16" />
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between mb-3">
-                    <div
-                      className={`w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center ${stat.pulse ? "animate-pulse-glow" : ""}`}
-                    >
-                      <Icon className="w-4 h-4 text-primary" />
-                    </div>
+      <section className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {stats.map((stat, i) => {
+            const Icon = stat.icon;
+            return (
+              <motion.div
+                key={stat.label}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.08 }}
+                className="glass-card rounded-2xl p-5"
+              >
+                {isLoading ? (
+                  <div className="space-y-3">
+                    <Skeleton className="h-9 w-9 rounded-xl" />
+                    <Skeleton className="h-3 w-32" />
+                    <Skeleton className="h-8 w-28" />
+                    {"sub" in stat && stat.sub ? <Skeleton className="h-2.5 w-20" /> : null}
                   </div>
-                  <p className="text-xs text-muted-foreground mb-1">{stat.label}</p>
-                  <p className="text-xl font-bold font-mono text-foreground">{stat.value}</p>
-                  {"sub" in stat && stat.sub && (
-                    <p className="text-[10px] text-muted-foreground mt-1 font-mono">{stat.sub}</p>
-                  )}
-                </>
-              )}
-            </motion.div>
-          );
-        })}
-      </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <Icon className="w-4 h-4 text-primary" />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-1">{stat.label}</p>
+                    <p
+                      className={`text-xl font-bold font-mono ${
+                        stat.mevPulse ? "text-success animate-mev-pulse" : "text-foreground"
+                      }`}
+                    >
+                      {stat.value}
+                    </p>
+                    {"sub" in stat && stat.sub ? (
+                      <p className="text-[10px] text-muted-foreground mt-1 font-mono">{stat.sub}</p>
+                    ) : null}
+                  </>
+                )}
+              </motion.div>
+            );
+          })}
+        </div>
+
+        <div className="flex justify-center pt-1">
+          <span className="encrypted-badge text-[11px]">
+            <Layers className="w-3 h-3" />
+            Powered by Fhenix CoFHE 🔒
+          </span>
+        </div>
+      </section>
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -126,13 +140,6 @@ export default function PoolStats({ activeOrderCount = 0 }: { activeOrderCount?:
           </table>
         </div>
       </motion.div>
-
-      <div className="flex justify-center">
-        <span className="encrypted-badge">
-          <Layers className="w-3 h-3" />
-          Powered by Fhenix CoFHE 🔒
-        </span>
-      </div>
     </div>
   );
 }
