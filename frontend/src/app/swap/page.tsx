@@ -16,7 +16,7 @@ export default function SwapPage() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 max-w-6xl mx-auto mb-10 items-start">
-        <div className="flex justify-center xl:justify-end">
+        <div className="flex min-w-0 justify-center xl:justify-end">
           <SwapCard />
         </div>
 
