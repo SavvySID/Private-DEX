@@ -2,23 +2,19 @@
 
 import { useAccount, usePublicClient, useReadContract, useReadContracts, useWalletClient } from "wagmi";
 import { useCallback, useMemo } from "react";
-import { hexToBigInt, type Address, type Hex } from "viem";
-import {
-  ORDER_BOOK_ABI,
-  ORDER_BOOK_ADDRESS,
-  configuredChain,
-} from "@/lib/contracts";
-import { initCofhe, unsealCt } from "@/lib/cofhe";
+import type { Address, Hex } from "viem";
+import { ORDER_BOOK_ABI, ORDER_BOOK_ADDRESS, configuredChain } from "@/lib/contracts";
 import { getCofheEnvironment } from "@/lib/cofheEnv";
+import { getPermission, initCofhe, unsealValue } from "@/lib/cofhe";
 
 export type OnChainOrder = {
   id: bigint;
+  trader: Address;
   tokenIn: Address;
   tokenOut: Address;
   expiry: bigint;
   filled: boolean;
   cancelled: boolean;
-  amountInHandle: Hex;
 };
 
 export function useOrders() {
@@ -40,7 +36,7 @@ export function useOrders() {
     return Array.from({ length: count }, (_, i) => ({
       address: ORDER_BOOK_ADDRESS,
       abi: ORDER_BOOK_ABI,
-      functionName: "orders" as const,
+      functionName: "getOrder" as const,
       args: [BigInt(i)] as const,
       chainId: configuredChain.id,
     }));
@@ -58,17 +54,17 @@ export function useOrders() {
     const mine: OnChainOrder[] = [];
     orderResults.forEach((res, i) => {
       if (res.status !== "success" || !res.result) return;
-      const r = res.result as readonly [Address, Address, Address, Hex, Hex, bigint, boolean, boolean];
+      const r = res.result as readonly [Address, Address, Address, bigint, boolean, boolean];
       const trader = r[0];
       if (trader.toLowerCase() !== address.toLowerCase()) return;
       mine.push({
         id: BigInt(i),
+        trader,
         tokenIn: r[1],
         tokenOut: r[2],
-        amountInHandle: r[3],
-        expiry: r[5],
-        filled: r[6],
-        cancelled: r[7],
+        expiry: r[3],
+        filled: r[4],
+        cancelled: r[5],
       });
     });
     return mine.reverse();
@@ -80,21 +76,29 @@ export function useOrders() {
   }, [refetchCount, refetchOrders]);
 
   const revealOrderAmount = useCallback(
-    async (orderId: bigint) => {
+    async (orderId: number | bigint) => {
       if (!publicClient || !walletClient) {
         throw new Error("Wallet not ready");
       }
+
       await initCofhe(publicClient, walletClient, getCofheEnvironment());
-      const r = await publicClient.readContract({
+
+      const permission = getPermission();
+      if (!permission) {
+        throw new Error("Missing CoFHE permission");
+      }
+
+      const row = (await publicClient.readContract({
         address: ORDER_BOOK_ADDRESS,
         abi: ORDER_BOOK_ABI,
         functionName: "orders",
-        args: [orderId],
-      });
-      const row = r as readonly [Address, Address, Address, Hex, Hex, bigint, boolean, boolean];
-      const amountIn = row[3];
-      const ctHash = hexToBigInt(amountIn);
-      return unsealCt(ctHash);
+        args: [typeof orderId === "bigint" ? orderId : BigInt(orderId)],
+      })) as readonly [Address, Address, Address, Hex, Hex, bigint, boolean, boolean];
+
+      const sealedAmount = row[3] as bigint | Hex | string;
+      const asStr =
+        typeof sealedAmount === "bigint" ? sealedAmount.toString() : String(sealedAmount);
+      return unsealValue(asStr);
     },
     [publicClient, walletClient],
   );
