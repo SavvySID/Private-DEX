@@ -4,8 +4,12 @@ dotenv.config();
 
 import type { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
+import "@cofhe/hardhat-plugin";
 
 const config: HardhatUserConfig = {
+  cofhe: {
+    logMocks: false,
+  },
   solidity: {
     version: "0.8.26",
     settings: {
@@ -22,7 +26,7 @@ const config: HardhatUserConfig = {
       url: "http://127.0.0.1:8545",
     },
     arbitrumSepolia: {
-      url: process.env.ARB_SEPOLIA_RPC ?? "https://sepolia-rollup.arbitrum.io/rpc",
+      url: "https://sepolia-rollup.arbitrum.io/rpc",
       chainId: 421614,
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     },
