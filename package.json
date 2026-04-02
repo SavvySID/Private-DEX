@@ -4,14 +4,15 @@
   "version": "1.0.0",
   "description": "PrivateDEX — FHE dark pool DEX (Hardhat + Next.js frontend)",
   "scripts": {
-    "build:contracts": "hardhat compile && ts-node scripts/copyAbis.ts",
+    "copy:abis": "ts-node scripts/copyAbis.ts",
     "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
     "deploy:testnet": "hardhat run scripts/deploy.ts --network arbitrumSepolia",
-    "copy:abis": "ts-node scripts/copyAbis.ts",
+    "build:contracts": "hardhat compile && npm run copy:abis",
     "compile": "hardhat compile",
     "test": "hardhat test"
   },
   "devDependencies": {
+    "@cofhe/hardhat-plugin": "^0.4.0",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@types/node": "^22.16.5",
     "dotenv": "^16.4.7",
