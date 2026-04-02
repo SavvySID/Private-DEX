@@ -5,7 +5,6 @@ import { Eye, EyeOff, Lock, TrendingUp, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { hexToBigInt, type Address, type Hex } from "viem";
 import { useAccount, usePublicClient, useReadContracts, useWalletClient } from "wagmi";
-import { hardhat } from "viem/chains";
 import { configuredChain, VAULT_ABI, VAULT_ADDRESS } from "@/lib/contracts";
 import {
   USDC_ARBITRUM_SEPOLIA,
@@ -18,6 +17,7 @@ import { getCofheEnvironment } from "@/lib/cofheEnv";
 import { formatUnits } from "viem";
 
 type TokenRow = { symbol: string; icon: string; token: Address };
+const isLocalChain = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 421614) === 31337;
 
 export default function PrivateBalance() {
   const [revealed, setRevealed] = useState(false);
@@ -28,7 +28,7 @@ export default function PrivateBalance() {
   const { data: walletClient } = useWalletClient({ chainId: configuredChain.id });
 
   const tokens: TokenRow[] =
-    configuredChain.id === hardhat.id
+    isLocalChain
       ? [
           { symbol: "ETH", icon: "⟠", token: MOCK_WETH_LOCAL },
           { symbol: "USDC", icon: "◉", token: MOCK_USDC_LOCAL },
