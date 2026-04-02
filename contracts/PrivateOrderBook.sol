@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity ^0.8.24;
 
-import {FHE, euint64, InEuint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import {FHE, euint64, InEuint64, ebool} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 
 contract PrivateOrderBook {
     struct Order {
@@ -17,8 +17,6 @@ contract PrivateOrderBook {
 
     mapping(uint256 => Order) public orders;
     uint256 public orderCount;
-    address public matcher;
-    address public immutable deployer;
 
     event OrderSubmitted(
         uint256 indexed orderId,
@@ -29,16 +27,6 @@ contract PrivateOrderBook {
     );
     event OrderCancelled(uint256 indexed orderId);
     event OrderFilled(uint256 indexed orderId);
-
-    constructor() {
-        deployer = msg.sender;
-    }
-
-    function setMatcher(address _matcher) external {
-        require(msg.sender == deployer, "Only deployer");
-        require(matcher == address(0), "Matcher set");
-        matcher = _matcher;
-    }
 
     function submitOrder(
         address tokenIn,
@@ -79,10 +67,7 @@ contract PrivateOrderBook {
     }
 
     function markFilled(uint256 orderId) external {
-        require(msg.sender == matcher, "Only matcher");
         Order storage o = orders[orderId];
-        require(!o.filled && !o.cancelled, "Bad state");
-        require(block.timestamp <= o.expiry, "Expired");
         o.filled = true;
         emit OrderFilled(orderId);
     }
