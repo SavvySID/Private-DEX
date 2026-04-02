@@ -1,91 +1,103 @@
-import {
-  cofhejs,
-  Encryptable,
-  FheTypes,
-  type CoFheInUint64,
-  type Permission,
-  type Result,
-} from "cofhejs/web";
+import { cofhejs, Encryptable, type Environment } from "cofhejs/web";
 import { toHex, type Hex, type PublicClient, type WalletClient } from "viem";
-import type { CofheEnvironment } from "@/lib/cofheEnv";
+import type { CofheEnvironment } from "./cofheEnv";
 
-function unwrap<T>(r: Result<T>, ctx: string): T {
-  if (!r.success) {
-    throw new Error(`${ctx}: ${r.error.message}`);
+type CoFheInUint64 = {
+  ctHash: bigint;
+  securityZone: number;
+  utype: number;
+  signature: string | Uint8Array;
+};
+
+function unwrapResult<T>(value: unknown): T {
+  if (value && typeof value === "object" && "success" in (value as Record<string, unknown>)) {
+    const r = value as {
+      success: boolean;
+      data?: T;
+      error?: { message?: string; cause?: unknown };
+    };
+    if (!r.success) {
+      const parts: string[] = [];
+      let msg = r.error?.message ?? "cofhejs operation failed";
+      parts.push(msg);
+      let c: unknown = r.error?.cause;
+      let depth = 0;
+      while (c instanceof Error && depth < 5) {
+        parts.push(c.message);
+        c = "cause" in c ? (c as Error & { cause?: unknown }).cause : undefined;
+        depth += 1;
+      }
+      throw new Error(parts.filter(Boolean).join(" — "));
+    }
+    return r.data as T;
   }
-  return r.data;
+  return value as T;
 }
+
+export type InitCofheOptions = {
+  /** When false, skips EIP-712 permit creation (no wallet signature). Use for mock encrypt-only flows. */
+  generatePermit?: boolean;
+  /** Relax TFHE WASM init when the chain has no FHE precompiles (e.g. vanilla Hardhat). */
+  ignoreTfheErrors?: boolean;
+};
 
 export async function initCofhe(
   publicClient: PublicClient,
-  walletClient: WalletClient,
+  walletClient: WalletClient | null | undefined,
   environment: CofheEnvironment,
+  options?: InitCofheOptions,
 ) {
+  const generatePermit = options?.generatePermit !== false;
   const init = await cofhejs.initializeWithViem({
     viemClient: publicClient,
-    viemWalletClient: walletClient,
-    environment,
-    generatePermit: true,
-    ignoreErrors: environment === "MOCK" || environment === "LOCAL",
+    viemWalletClient: walletClient ?? undefined,
+    environment: environment as Environment,
+    generatePermit,
+    ignoreErrors:
+      environment === "MOCK" ||
+      environment === "LOCAL" ||
+      options?.ignoreTfheErrors === true,
   });
-  if (!init.success) {
-    if (environment === "MOCK" || environment === "LOCAL") {
-      console.warn("cofhejs.initializeWithViem:", init.error?.message);
-    } else {
-      unwrap(init, "cofhejs.initializeWithViem");
-    }
-  }
-
-  try {
-    const issuer = await walletClient.getAddresses().then((a) => a[0]);
-    const permitRes = await cofhejs.createPermit({ type: "self", issuer });
-    if (!permitRes.success && environment !== "MOCK" && environment !== "LOCAL") {
-      console.warn("cofhejs.createPermit:", permitRes.error?.message);
-    }
-  } catch (e) {
-    if (environment !== "MOCK" && environment !== "LOCAL") {
-      console.warn("cofhejs.createPermit skipped:", e);
-    }
-  }
+  unwrapResult(init);
 }
 
 export async function encryptSwapAmounts(amountIn: bigint, minOut: bigint) {
-  const enc = await cofhejs.encrypt([Encryptable.uint64(amountIn), Encryptable.uint64(minOut)]);
-  const [encAmountIn, encMinOut] = unwrap(enc, "cofhejs.encrypt");
-  return { encAmountIn, encMinOut } as { encAmountIn: CoFheInUint64; encMinOut: CoFheInUint64 };
+  const encrypted = await cofhejs.encrypt([Encryptable.uint64(amountIn), Encryptable.uint64(minOut)]);
+  const [encAmountIn, encMinOut] = unwrapResult<[CoFheInUint64, CoFheInUint64]>(encrypted);
+  return { encAmountIn, encMinOut };
 }
 
-export async function encryptSingle(amount: bigint): Promise<CoFheInUint64> {
-  const enc = await cofhejs.encrypt([Encryptable.uint64(amount)]);
-  const [one] = unwrap(enc, "cofhejs.encrypt single");
-  return one as CoFheInUint64;
+export async function unsealValue(sealedValue: string): Promise<bigint> {
+  const raw = await cofhejs.unseal(BigInt(sealedValue) as never, "uint64" as never);
+  const value = unwrapResult<bigint | string | number>(raw);
+  return BigInt(value);
+}
+
+export function getPermission() {
+  const permit = cofhejs.getPermit?.();
+  const resolved = unwrapResult<{ getPermission: () => unknown } | null>(permit);
+  return resolved?.getPermission();
+}
+
+export async function encryptSingle(amount: bigint) {
+  const encrypted = await cofhejs.encrypt([Encryptable.uint64(amount)]);
+  const [single] = unwrapResult<[CoFheInUint64]>(encrypted);
+  return single;
+}
+
+// Backward-compatible helpers currently used by app code.
+export async function unsealCt(ctHash: bigint): Promise<bigint> {
+  return unsealValue(ctHash.toString());
 }
 
 export function mapCoFheInput(input: CoFheInUint64) {
   const signature: Hex =
-    typeof input.signature === "string"
-      ? (input.signature as Hex)
-      : toHex(new Uint8Array(input.signature as Uint8Array));
+    typeof input.signature === "string" ? (input.signature as Hex) : toHex(input.signature);
+
   return {
     ctHash: input.ctHash,
     securityZone: input.securityZone,
     utype: input.utype,
     signature,
   } as const;
-}
-
-export async function unsealCt(ctHash: bigint): Promise<bigint> {
-  const res = await cofhejs.unseal(ctHash, FheTypes.Uint64);
-  const data = unwrap(res, "cofhejs.unseal");
-  return data as bigint;
-}
-
-export async function unsealValue(_sealedValue: string): Promise<bigint> {
-  const ctHash = BigInt(_sealedValue);
-  return unsealCt(ctHash);
-}
-
-export function getPermission(): Permission | null {
-  const r = cofhejs.getPermission();
-  return r.success ? r.data : null;
 }
