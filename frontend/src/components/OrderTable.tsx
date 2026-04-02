@@ -1,21 +1,60 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Lock, Eye, CheckCircle, Clock, XCircle, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
-import { formatUnits } from "viem";
+import { formatUnits, type Address } from "viem";
 import { useOrders } from "@/hooks/useOrders";
+import {
+  MOCK_USDC_LOCAL,
+  MOCK_WETH_LOCAL,
+  USDC_ARBITRUM_SEPOLIA,
+  WETH_ARBITRUM_SEPOLIA,
+} from "@/lib/tokens";
 
 type RowStatus = "matched" | "pending" | "cancelled" | "expired";
 
-function classify(expiry: bigint, filled: boolean, cancelled: boolean): RowStatus {
+function classify(expiry: bigint, filled: boolean, cancelled: boolean, nowSec: number): RowStatus {
   if (cancelled) return "cancelled";
   if (filled) return "matched";
-  if (expiry <= BigInt(Math.floor(Date.now() / 1000))) return "expired";
+  if (expiry <= BigInt(nowSec)) return "expired";
   return "pending";
 }
 
-function useNow(tick = 1000) {
+const TOKEN_SYMBOL: Record<string, string> = {
+  [WETH_ARBITRUM_SEPOLIA.toLowerCase()]: "WETH",
+  [USDC_ARBITRUM_SEPOLIA.toLowerCase()]: "USDC",
+  [MOCK_WETH_LOCAL.toLowerCase()]: "WETH",
+  [MOCK_USDC_LOCAL.toLowerCase()]: "USDC",
+};
+
+function tokenSymbol(addr: Address): string {
+  return TOKEN_SYMBOL[addr.toLowerCase()] ?? `${addr.slice(0, 6)}…`;
+}
+
+function formatAmountFixed6(raw: bigint): string {
+  const s = formatUnits(raw, 6);
+  if (!s.includes(".")) return s;
+  return s.replace(/\.?0+$/, "") || "0";
+}
+
+function formatExpiryLabel(rowStatus: RowStatus, expiryTs: number, now: number): string {
+  if (rowStatus === "pending") {
+    const left = expiryTs - now;
+    if (left <= 0) return "Expired";
+    const totalMin = Math.ceil(left / 60);
+    if (totalMin >= 60) {
+      const h = Math.floor(totalMin / 60);
+      const m = totalMin % 60;
+      return m ? `Expires in ${h}h ${m} min` : `Expires in ${h}h`;
+    }
+    return `Expires in ${totalMin} min`;
+  }
+  if (rowStatus === "expired") return "Expired";
+  return "—";
+}
+
+function useNow(tick = 30_000) {
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
   useEffect(() => {
     const t = setInterval(() => setNow(Math.floor(Date.now() / 1000)), tick);
@@ -27,30 +66,51 @@ function useNow(tick = 1000) {
 export default function OrderTable() {
   const { orders, isLoading, revealOrderAmount } = useOrders();
   const now = useNow();
-  const [revealLoading, setRevealLoading] = useState<number | null>(null);
+  const [revealLoadingId, setRevealLoadingId] = useState<string | null>(null);
   const [revealed, setRevealed] = useState<Record<string, string>>({});
 
-  const onReveal = async (orderId: bigint) => {
+  const statusChip = useMemo(
+    () =>
+      ({
+        matched: {
+          icon: CheckCircle,
+          label: "Matched",
+          className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/35",
+        },
+        pending: {
+          icon: Clock,
+          label: "Pending",
+          className: "bg-amber-500/15 text-amber-400 border-amber-500/35",
+        },
+        cancelled: {
+          icon: XCircle,
+          label: "Cancelled",
+          className: "bg-red-500/15 text-red-400 border-red-500/35",
+        },
+        expired: {
+          icon: Clock,
+          label: "Expired",
+          className: "bg-muted/80 text-muted-foreground border-border",
+        },
+      }) satisfies Record<
+        RowStatus,
+        { icon: typeof CheckCircle; label: string; className: string }
+      >,
+    [],
+  );
+
+  const onReveal = async (orderId: bigint, amountSymbol: string) => {
     const key = orderId.toString();
-    setRevealLoading(Number(orderId));
+    setRevealLoadingId(key);
     try {
       const raw = await revealOrderAmount(orderId);
-      setRevealed((p) => ({ ...p, [key]: formatUnits(raw, 6) }));
+      const formatted = `${formatAmountFixed6(raw)} ${amountSymbol}`;
+      setRevealed((p) => ({ ...p, [key]: formatted }));
     } catch (e) {
       console.error(e);
     } finally {
-      setRevealLoading(null);
+      setRevealLoadingId(null);
     }
-  };
-
-  const statusChip: Record<
-    RowStatus,
-    { icon: typeof CheckCircle; label: string; className: string }
-  > = {
-    matched: { icon: CheckCircle, label: "Matched", className: "text-success" },
-    pending: { icon: Clock, label: "Pending", className: "text-warning" },
-    cancelled: { icon: XCircle, label: "Cancelled", className: "text-destructive" },
-    expired: { icon: Clock, label: "Expired", className: "text-muted-foreground" },
   };
 
   return (
@@ -96,13 +156,15 @@ export default function OrderTable() {
             )}
             {!isLoading &&
               orders.map((order, i) => {
-                const rowStatus = classify(order.expiry, order.filled, order.cancelled);
-                const status = statusChip[rowStatus];
-                const StatusIcon = status.icon;
+                const rowStatus = classify(order.expiry, order.filled, order.cancelled, now);
+                const chip = statusChip[rowStatus];
+                const StatusIcon = chip.icon;
                 const exp = Number(order.expiry);
-                const left = Math.max(0, exp - now);
-                const pair = `${order.tokenIn.slice(0, 6)}… / ${order.tokenOut.slice(0, 6)}…`;
+                const pair = `${tokenSymbol(order.tokenIn)} → ${tokenSymbol(order.tokenOut)}`;
                 const key = order.id.toString();
+                const revealedText = revealed[key];
+                const isRevealing = revealLoadingId === key;
+
                 return (
                   <motion.tr
                     key={key}
@@ -111,41 +173,45 @@ export default function OrderTable() {
                     transition={{ delay: i * 0.05 }}
                     className="border-b border-border/50 hover:bg-secondary/50 transition-colors"
                   >
-                    <td className="px-6 py-4 font-medium text-sm text-foreground font-mono">{pair}</td>
+                    <td className="px-6 py-4 font-medium text-sm text-foreground">{pair}</td>
                     <td className="px-6 py-4">
-                      {revealed[key] ? (
-                        <span className="text-xs font-mono text-foreground">{revealed[key]}</span>
+                      {!order.filled ? (
+                        <span className="inline-flex items-center rounded-md border border-border bg-secondary/60 px-2 py-1 text-[11px] font-medium text-muted-foreground">
+                          🔒 Hidden
+                        </span>
+                      ) : revealedText ? (
+                        <span className="text-sm font-mono text-foreground">{revealedText}</span>
                       ) : (
-                        <span className="encrypted-badge text-[10px]">🔒 Hidden</span>
+                        <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-xs font-mono text-muted-foreground">
-                      {rowStatus === "expired" || rowStatus === "matched" || rowStatus === "cancelled"
-                        ? "—"
-                        : `${Math.floor(left / 60)}m ${left % 60}s`}
+                    <td className="px-6 py-4 text-xs font-medium text-muted-foreground">
+                      {formatExpiryLabel(rowStatus, exp, now)}
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`flex items-center gap-1.5 text-xs font-medium ${status.className}`}>
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${chip.className}`}
+                      >
                         <StatusIcon className="w-3.5 h-3.5" />
-                        {status.label}
+                        {chip.label}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      {rowStatus === "matched" && (
+                      {order.filled && !revealedText ? (
                         <button
                           type="button"
-                          onClick={() => onReveal(order.id)}
-                          disabled={revealLoading === Number(order.id)}
-                          className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
+                          onClick={() => onReveal(order.id, tokenSymbol(order.tokenIn))}
+                          disabled={isRevealing}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/15 transition-colors disabled:opacity-50"
                         >
-                          {revealLoading === Number(order.id) ? (
+                          {isRevealing ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           ) : (
                             <Eye className="w-3.5 h-3.5" />
                           )}
                           Reveal Amount
                         </button>
-                      )}
+                      ) : null}
                     </td>
                   </motion.tr>
                 );
