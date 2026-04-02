@@ -86,6 +86,16 @@ export default {
           "0%, 100%": { opacity: "0.4" },
           "50%": { opacity: "1" },
         },
+        "mev-pulse": {
+          "0%, 100%": {
+            opacity: "1",
+            textShadow: "0 0 0px hsl(150 70% 45% / 0)",
+          },
+          "50%": {
+            opacity: "0.88",
+            textShadow: "0 0 14px hsl(150 70% 45% / 0.5)",
+          },
+        },
         "scan-line": {
           "0%": { transform: "translateY(-100%)" },
           "100%": { transform: "translateY(100%)" },
@@ -95,6 +105,7 @@ export default {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
+        "mev-pulse": "mev-pulse 2.5s ease-in-out infinite",
         "scan-line": "scan-line 3s linear infinite",
       },
     },
