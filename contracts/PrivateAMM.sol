@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity ^0.8.24;
 
 import {FHE, euint64, ebool} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {PrivateOrderBook} from "./PrivateOrderBook.sol";
 
 contract PrivateAMM {
-    PrivateOrderBook public immutable orderBook;
+    PrivateOrderBook public orderBook;
     uint256 public totalMatchedOrders;
     uint256 public estimatedMevSaved;
 
@@ -20,33 +21,35 @@ contract PrivateAMM {
             address buyTrader,
             address buyTokenIn,
             address buyTokenOut,
-            euint64 buyAmountInUnused,
-            euint64 buyMinOut,
             uint256 buyExpiry,
             bool buyFilled,
             bool buyCancelled
-        ) = orderBook.orders(buyId);
+        ) = orderBook.getOrder(buyId);
 
         (
             address sellTrader,
             address sellTokenIn,
             address sellTokenOut,
-            euint64 sellAmt,
-            euint64 sellMinOutUnused,
             uint256 sellExpiry,
             bool sellFilled,
             bool sellCancelled
-        ) = orderBook.orders(sellId);
+        ) = orderBook.getOrder(sellId);
 
-        require(!buyFilled && !buyCancelled && block.timestamp <= buyExpiry, "Buy invalid");
-        require(!sellFilled && !sellCancelled && block.timestamp <= sellExpiry, "Sell invalid");
+        (, , , , , , bool buyFilledRaw, bool buyCancelledRaw) = orderBook.orders(buyId);
+        (, , , , , , bool sellFilledRaw, bool sellCancelledRaw) = orderBook.orders(sellId);
+        (,, , , euint64 buyMinAmountOut, , , ) = orderBook.orders(buyId);
+        (,, , euint64 sellAmountIn, , , , ) = orderBook.orders(sellId);
+
+        require(!buyFilled && !buyCancelled && !buyFilledRaw && !buyCancelledRaw, "Buy invalid");
+        require(!sellFilled && !sellCancelled && !sellFilledRaw && !sellCancelledRaw, "Sell invalid");
+        require(buyExpiry > block.timestamp && sellExpiry > block.timestamp, "Order expired");
         require(buyTokenIn == sellTokenOut && buyTokenOut == sellTokenIn, "Pair mismatch");
 
-        ebool canFill = FHE.gte(sellAmt, buyMinOut);
-        euint64 fillAmount = FHE.select(canFill, buyMinOut, FHE.asEuint64(0));
-        FHE.allowThis(fillAmount);
+        ebool canFill = FHE.gte(sellAmountIn, buyMinAmountOut);
+        euint64 fillAmount = FHE.select(canFill, buyMinAmountOut, FHE.asEuint64(0));
         FHE.allow(fillAmount, buyTrader);
         FHE.allow(fillAmount, sellTrader);
+        FHE.allowThis(fillAmount);
 
         orderBook.markFilled(buyId);
         orderBook.markFilled(sellId);
