@@ -1,26 +1,16 @@
-import { createPublicClient, http, type Abi, type Address } from "viem";
+import { createPublicClient, http, type Abi } from "viem";
 import { arbitrumSepolia, hardhat } from "viem/chains";
-import orderBookArtifact from "./abis/PrivateOrderBook.json";
-import ammArtifact from "./abis/PrivateAMM.json";
-import vaultArtifact from "./abis/PrivateVault.json";
+import orderBookAbi from "./abis/PrivateOrderBook.json";
+import ammAbi from "./abis/PrivateAMM.json";
+import vaultAbi from "./abis/PrivateVault.json";
 
-const ZERO = "0x0000000000000000000000000000000000000000" as Address;
+export const ORDER_BOOK_ADDRESS = process.env.NEXT_PUBLIC_ORDER_BOOK_ADDRESS as `0x${string}`;
+export const AMM_ADDRESS = process.env.NEXT_PUBLIC_AMM_ADDRESS as `0x${string}`;
+export const VAULT_ADDRESS = process.env.NEXT_PUBLIC_VAULT_ADDRESS as `0x${string}`;
 
-const orderBook = (process.env.NEXT_PUBLIC_ORDER_BOOK_ADDRESS as Address | undefined) ?? ZERO;
-const amm = (process.env.NEXT_PUBLIC_AMM_ADDRESS as Address | undefined) ?? ZERO;
-const vault = (process.env.NEXT_PUBLIC_VAULT_ADDRESS as Address | undefined) ?? ZERO;
-
-export const ORDER_BOOK_ADDRESS = orderBook;
-export const AMM_ADDRESS = amm;
-export const VAULT_ADDRESS = vault;
-
-export const ORDER_BOOK_ABI = orderBookArtifact.abi as Abi;
-export const AMM_ABI = ammArtifact.abi as Abi;
-export const VAULT_ABI = vaultArtifact.abi as Abi;
-
-export function isOrderBookDeployed(): boolean {
-  return ORDER_BOOK_ADDRESS !== ZERO;
-}
+export const ORDER_BOOK_ABI = orderBookAbi as Abi;
+export const AMM_ABI = ammAbi as Abi;
+export const VAULT_ABI = vaultAbi as Abi;
 
 const envChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? arbitrumSepolia.id);
 
@@ -31,6 +21,10 @@ const rpcUrl =
   configuredChain.id === hardhat.id
     ? (process.env.NEXT_PUBLIC_LOCAL_RPC ?? "http://127.0.0.1:8545")
     : (process.env.NEXT_PUBLIC_RPC_URL ?? arbitrumSepolia.rpcUrls.default.http[0]);
+
+export function isOrderBookDeployed(): boolean {
+  return Boolean(ORDER_BOOK_ADDRESS);
+}
 
 export const publicClient = createPublicClient({
   chain: configuredChain,
