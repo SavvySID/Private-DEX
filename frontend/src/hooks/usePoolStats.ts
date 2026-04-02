@@ -1,35 +1,55 @@
 "use client";
 
-import { useReadContract } from "wagmi";
+import { useMemo } from "react";
+import { useReadContracts } from "wagmi";
 import { AMM_ABI, AMM_ADDRESS, configuredChain } from "@/lib/contracts";
 
+const ammEnabled = Boolean(AMM_ADDRESS);
+
 export function usePoolStats() {
-  const q1 = useReadContract({
-    address: AMM_ADDRESS,
-    abi: AMM_ABI,
-    functionName: "totalMatchedOrders",
-    chainId: configuredChain.id,
+  const { data, isLoading, isFetching } = useReadContracts({
+    contracts: [
+      {
+        address: AMM_ADDRESS,
+        abi: AMM_ABI,
+        functionName: "totalMatchedOrders",
+        chainId: configuredChain.id,
+      },
+      {
+        address: AMM_ADDRESS,
+        abi: AMM_ABI,
+        functionName: "estimatedMevSaved",
+        chainId: configuredChain.id,
+      },
+    ],
     query: {
-      enabled: AMM_ADDRESS !== "0x0000000000000000000000000000000000000000",
+      enabled: ammEnabled,
       refetchInterval: 10_000,
     },
   });
-  const q2 = useReadContract({
-    address: AMM_ADDRESS,
-    abi: AMM_ABI,
-    functionName: "estimatedMevSaved",
-    chainId: configuredChain.id,
-    query: {
-      enabled: AMM_ADDRESS !== "0x0000000000000000000000000000000000000000",
-      refetchInterval: 10_000,
-    },
-  });
 
-  const totalMatchedOrders = q1.data != null ? Number(q1.data) : 0;
-  const estimatedMevSaved = q2.data != null ? Number(q2.data) : 0;
-  const mevSavedDisplay = `~$${(estimatedMevSaved * 15).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  const totalMatchedOrders = useMemo(() => {
+    const r = data?.[0];
+    if (r?.status !== "success" || r.result == null) return 0;
+    return Number(r.result);
+  }, [data]);
 
-  const isLoading = q1.isLoading || q2.isLoading || q1.isFetching || q2.isFetching;
+  const estimatedMevSaved = useMemo(() => {
+    const r = data?.[1];
+    if (r?.status !== "success" || r.result == null) return 0;
+    return Number(r.result);
+  }, [data]);
 
-  return { totalMatchedOrders, estimatedMevSaved, mevSavedDisplay, isLoading };
+  const mevSavedDisplay = useMemo(() => {
+    const usdApprox = estimatedMevSaved * 100;
+    const formatted = usdApprox.toLocaleString(undefined, { maximumFractionDigits: 0 });
+    return `~$${formatted} saved`;
+  }, [estimatedMevSaved]);
+
+  return {
+    totalMatchedOrders,
+    estimatedMevSaved,
+    isLoading: isLoading || isFetching,
+    mevSavedDisplay,
+  };
 }
