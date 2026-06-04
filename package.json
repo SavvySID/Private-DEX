@@ -7,8 +7,11 @@
     "copy:abis": "ts-node scripts/copyAbis.ts",
     "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
     "deploy:testnet": "hardhat run scripts/deploy.ts --network arbitrumSepolia",
+    "deploy:tokens": "hardhat run scripts/deployTokens.ts --network arbitrumSepolia",
+    "deploy:tokens:local": "hardhat run scripts/deployTokens.ts --network localhost",
     "build:contracts": "hardhat compile && npm run copy:abis",
     "compile": "hardhat compile",
+    "keeper": "ts-node --transpile-only scripts/keeper.ts",
     "test": "hardhat test"
   },
   "devDependencies": {
@@ -22,6 +25,7 @@
   },
   "dependencies": {
     "@fhenixprotocol/cofhe-contracts": "^0.1.3",
-    "@openzeppelin/contracts": "^5.1.0"
+    "@openzeppelin/contracts": "^5.1.0",
+    "viem": "^2.52.0"
   }
 }
