@@ -5,7 +5,7 @@ import { useCallback, useMemo } from "react";
 import type { Address, Hex } from "viem";
 import { ORDER_BOOK_ABI, ORDER_BOOK_ADDRESS, configuredChain } from "@/lib/contracts";
 import { getCofheEnvironment } from "@/lib/cofheEnv";
-import { getPermission, initCofhe, unsealValue } from "@/lib/cofhe";
+import { initCofhe, unsealValue } from "@/lib/cofhe";
 
 export type OnChainOrder = {
   id: bigint;
@@ -81,12 +81,8 @@ export function useOrders() {
         throw new Error("Wallet not ready");
       }
 
+      // unsealValue ensures a self-permit (EIP-712 signature) is created before decrypting.
       await initCofhe(publicClient, walletClient, getCofheEnvironment());
-
-      const permission = getPermission();
-      if (!permission) {
-        throw new Error("Missing CoFHE permission");
-      }
 
       const row = (await publicClient.readContract({
         address: ORDER_BOOK_ADDRESS,
