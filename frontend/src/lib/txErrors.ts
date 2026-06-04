@@ -15,7 +15,7 @@ export function formatTransactionError(err: unknown): string {
         m.includes("invalid encrypted") ||
         m.includes("CoFhe")
       ) {
-        return "FHE input was rejected on-chain. Use Arbitrum Sepolia + CoFHE testnet with real cofhejs encryption, or a Fhenix dev node for local Hardhat.";
+        return "FHE input was rejected on-chain. Use Arbitrum Sepolia + CoFHE testnet with real @cofhe/sdk encryption, or a Fhenix dev node for local Hardhat.";
       }
       return m;
     }
