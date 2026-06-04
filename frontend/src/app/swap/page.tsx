@@ -4,6 +4,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
 import SwapCard from "@/components/SwapCard";
 import PrivateBalance from "@/components/PrivateBalance";
+import VaultPanel from "@/components/VaultPanel";
 
 export default function SwapPage() {
   return (
@@ -81,8 +82,15 @@ export default function SwapPage() {
         </motion.div>
       </div>
 
-      <div className="max-w-md mx-auto xl:max-w-6xl xl:mx-auto">
-        <PrivateBalance />
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 max-w-6xl mx-auto items-start">
+        <div className="flex min-w-0 justify-center xl:justify-end">
+          <div className="w-full max-w-md">
+            <VaultPanel />
+          </div>
+        </div>
+        <div className="min-w-0">
+          <PrivateBalance />
+        </div>
       </div>
     </div>
   );
