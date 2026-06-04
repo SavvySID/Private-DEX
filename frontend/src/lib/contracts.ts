@@ -3,10 +3,20 @@ import { arbitrumSepolia, hardhat } from "viem/chains";
 import orderBookAbi from "./abis/PrivateOrderBook.json";
 import ammAbi from "./abis/PrivateAMM.json";
 import vaultAbi from "./abis/PrivateVault.json";
+import { ZERO_ADDRESS, toAddressOrZero } from "./address";
 
-export const ORDER_BOOK_ADDRESS = process.env.NEXT_PUBLIC_ORDER_BOOK_ADDRESS as `0x${string}`;
-export const AMM_ADDRESS = process.env.NEXT_PUBLIC_AMM_ADDRESS as `0x${string}`;
-export const VAULT_ADDRESS = process.env.NEXT_PUBLIC_VAULT_ADDRESS as `0x${string}`;
+export const ORDER_BOOK_ADDRESS = toAddressOrZero(
+  process.env.NEXT_PUBLIC_ORDER_BOOK_ADDRESS,
+  "NEXT_PUBLIC_ORDER_BOOK_ADDRESS",
+);
+export const AMM_ADDRESS = toAddressOrZero(
+  process.env.NEXT_PUBLIC_AMM_ADDRESS,
+  "NEXT_PUBLIC_AMM_ADDRESS",
+);
+export const VAULT_ADDRESS = toAddressOrZero(
+  process.env.NEXT_PUBLIC_VAULT_ADDRESS,
+  "NEXT_PUBLIC_VAULT_ADDRESS",
+);
 
 export const ORDER_BOOK_ABI = orderBookAbi as Abi;
 export const AMM_ABI = ammAbi as Abi;
@@ -23,7 +33,7 @@ const rpcUrl =
     : (process.env.NEXT_PUBLIC_RPC_URL ?? arbitrumSepolia.rpcUrls.default.http[0]);
 
 export function isOrderBookDeployed(): boolean {
-  return Boolean(ORDER_BOOK_ADDRESS);
+  return ORDER_BOOK_ADDRESS !== ZERO_ADDRESS;
 }
 
 export const publicClient = createPublicClient({
