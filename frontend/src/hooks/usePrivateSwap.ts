@@ -3,11 +3,12 @@
 import { useCallback, useState } from "react";
 import type { Address } from "viem";
 import { BaseError } from "viem";
-import { usePublicClient, useWalletClient, useWriteContract } from "wagmi";
+import { useChainId, usePublicClient, useWalletClient, useWriteContract } from "wagmi";
 import { ORDER_BOOK_ABI, ORDER_BOOK_ADDRESS, configuredChain } from "@/lib/contracts";
 import { encryptSwapAmounts, initCofhe, mapCoFheInput } from "@/lib/cofhe";
 import { getCofheEnvironment } from "@/lib/cofheEnv";
 import { humanToFixed6 } from "@/lib/swapMath";
+import { getBufferedFees } from "@/lib/gas";
 
 export type PrivateSwapStatus = "idle" | "encrypting" | "submitting" | "done" | "error";
 
@@ -32,6 +33,7 @@ type UsePrivateSwapParams = {
 export function usePrivateSwap({ tokenIn, tokenOut, amountIn, minOutFixed6 }: UsePrivateSwapParams) {
   const [status, setStatus] = useState<PrivateSwapStatus>("idle");
   const [lastError, setLastError] = useState<string | null>(null);
+  const walletChainId = useChainId();
   const publicClient = usePublicClient({ chainId: configuredChain.id });
   const { data: walletClient } = useWalletClient({ chainId: configuredChain.id });
   const { writeContractAsync } = useWriteContract();
@@ -63,6 +65,7 @@ export function usePrivateSwap({ tokenIn, tokenOut, amountIn, minOutFixed6 }: Us
         await initCofhe(publicClient, walletClient, env, {
           generatePermit: !skipPermit,
           ignoreTfheErrors: isLocalHardhat,
+          walletChainId,
         });
       } catch (e) {
         console.error(e);
@@ -90,6 +93,7 @@ export function usePrivateSwap({ tokenIn, tokenOut, amountIn, minOutFixed6 }: Us
       setStatus("submitting");
 
       try {
+        const fees = await getBufferedFees(publicClient);
         await writeContractAsync({
           address: ORDER_BOOK_ADDRESS,
           abi: ORDER_BOOK_ABI,
@@ -102,6 +106,7 @@ export function usePrivateSwap({ tokenIn, tokenOut, amountIn, minOutFixed6 }: Us
             BigInt(Math.floor(Date.now() / 1000) + 3600),
           ],
           chainId: configuredChain.id,
+          ...(fees ?? {}),
         });
       } catch (e) {
         console.error(e);
@@ -116,7 +121,7 @@ export function usePrivateSwap({ tokenIn, tokenOut, amountIn, minOutFixed6 }: Us
       setLastError(formatSwapError(error));
       setStatus("error");
     }
-  }, [amountIn, minOutFixed6, publicClient, tokenIn, tokenOut, walletClient, writeContractAsync]);
+  }, [amountIn, minOutFixed6, publicClient, tokenIn, tokenOut, walletChainId, walletClient, writeContractAsync]);
 
   return { status, executeSwap, reset, lastError };
 }
