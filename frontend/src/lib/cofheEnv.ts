@@ -9,14 +9,12 @@ function parseEnvOverride(): CofheEnvironment | undefined {
 }
 
 /**
- * CoFHE WASM/SDK environment for `cofhejs.initialize`.
+ * CoFHE environment hint passed to `initCofhe`.
  *
- * **Do not use `MOCK` on Hardhat with this repo:** `cofhejs@0.3.x` treats the chain as “mock” only if
- * predeploys exist at `0x…0100` / `0x…0200`, but `@cofhe/hardhat-plugin` deploys the ZK mock at `0x…5001`.
- * With `MOCK`, CoFHE URLs are cleared and cofhejs then tries to fetch keys with no `coFheUrl` → init error.
- *
- * Use **TESTNET** (Fhenix testnet endpoints) for client encrypt on both Arbitrum Sepolia and local 31337.
- * Override with `NEXT_PUBLIC_COFHE_ENVIRONMENT` if you know what you’re doing.
+ * With `@cofhe/sdk@0.6.x` the actual behavior (mock vs. real coprocessor) is derived from the
+ * connected chain's config in `supportedChains` (arbSepolia = TESTNET, hardhat = MOCK). This value
+ * is mainly used by the app to gate the network check. Defaults to TESTNET (Arbitrum Sepolia);
+ * override with `NEXT_PUBLIC_COFHE_ENVIRONMENT` if needed.
  */
 export function getCofheEnvironment(): CofheEnvironment {
   const override = parseEnvOverride();
