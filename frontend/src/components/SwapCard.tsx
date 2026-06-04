@@ -307,7 +307,7 @@ export default function SwapCard() {
                 </div>
                 <div className="flex justify-between text-muted-foreground">
                   <span>Encryption</span>
-                  <span className="text-primary font-mono">cofhejs · euint64</span>
+                  <span className="text-primary font-mono">@cofhe/sdk · euint64</span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
                   <span>MEV Protection</span>
