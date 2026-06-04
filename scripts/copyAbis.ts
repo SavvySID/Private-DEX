@@ -16,6 +16,10 @@ const copies: { artifact: string; destName: string }[] = [
     artifact: path.join(root, "artifacts", "contracts", "PrivateVault.sol", "PrivateVault.json"),
     destName: "PrivateVault.json",
   },
+  {
+    artifact: path.join(root, "artifacts", "contracts", "MockERC20.sol", "MockERC20.json"),
+    destName: "MockERC20.json",
+  },
 ];
 
 /** App ABI path: frontend/src/lib/abis (Next.js `src/lib/abis`). */
